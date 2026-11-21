@@ -1,0 +1,13 @@
+# SEED-IV is licensed data: never commit it (raw or derived) to GitHub/GitLab.
+data/
+*.mat
+*.npz
+*.npy
+
+# Local scratch output (summaries you want to keep go in reports/)
+results/
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store

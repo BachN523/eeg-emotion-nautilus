@@ -1,0 +1,49 @@
+# Leave-one-subject-out baseline on Nautilus: one pod per held-out subject.
+# An Indexed Job gives each pod its own JOB_COMPLETION_INDEX (0-14) = the fold.
+#
+# Assumes this repo was cloned into the PVC at /data/project1/eeg-emotion-nautilus
+# (Practice 5.1) and SEED-IV is at /data/SEED_IV. Results land in /data/results.
+#
+#   kubectl -n gp-engine-mizzou-dsa-cloud create -f k8s/loso-job.yaml
+#   kubectl -n gp-engine-mizzou-dsa-cloud get pods -l job-name=job-bxnwx2-loso-mlp
+#   kubectl -n gp-engine-mizzou-dsa-cloud delete job job-bxnwx2-loso-mlp   # when done
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-bxnwx2-loso-mlp
+spec:
+  completionMode: Indexed
+  completions: 15
+  parallelism: 15
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 86400   # auto-delete finished pods after a day
+  template:
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      containers:
+      - name: loso
+        image: gitlab-registry.nrp-nautilus.io/skhan/dl_pytorch:4bd8b3be
+        workingDir: /data/project1/eeg-emotion-nautilus
+        command: ["/bin/sh", "-c"]
+        args:
+        - >-
+          pip install -q -r requirements.txt &&
+          python main.py --data-dir /data/SEED_IV --protocol loso
+          --fold ${JOB_COMPLETION_INDEX} --model mlp --results-dir /data/results
+        # 1 CPU / 2 GB: enough for sklearn on ~37k windows, and pods this size
+        # are exempt from NRP's usage-ratio rules.
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            cpu: "1"
+            memory: 2Gi
+        volumeMounts:
+        - name: bxnwx2-pv
+          mountPath: /data
+      volumes:
+      - name: bxnwx2-pv
+        persistentVolumeClaim:
+          claimName: bxnwx2-pv
